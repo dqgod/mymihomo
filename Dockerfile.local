@@ -1,0 +1,31 @@
+# Local deployment on hosts that need an amd64-compatible Mihomo core.
+# CORE_IMAGE must contain /mihomo, CA certificates, and the geo databases.
+ARG GO_IMAGE=golang:1.24-alpine
+ARG CORE_IMAGE=local/mihomo:v1.19.31-compatible
+FROM ${GO_IMAGE} AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ ./cmd/
+ARG VERSION=dev
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOAMD64=v1 go test ./... && \
+    CGO_ENABLED=0 GOAMD64=v1 go build -ldflags="-s -w -X main.version=${VERSION}" -o /mymihomo ./cmd/mymihomo/
+
+FROM ${CORE_IMAGE} AS core
+FROM alpine:3.16
+COPY --from=core /mihomo /mihomo
+COPY --from=core /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=core /root/.config/mihomo/ /root/.config/mihomo/
+COPY --from=builder /mymihomo /bin/mymihomo
+COPY web/zashboard/dist/ /opt/mymihomo/ui/zashboard/
+COPY run.sh /bin/run
+RUN chmod +x /bin/run /bin/mymihomo && mkdir -p /root/conf
+ENV CONF_FILE=/root/conf/config.yaml MIHOMO_HOME=/root/.config/mihomo \
+    WEB_ENV_FILE=/root/conf/web.env WEB_API_LOG=/root/conf/web_api.log \
+    CUSTOM_CONF=/root/conf/custom.yaml UI_DIR=/opt/mymihomo/ui/zashboard \
+    WEB_CONFIG_PORT=9097 EXTERNAL_PORT=19097 MIXED_PORT=7897
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD wget -q -T 3 --header="Authorization: Bearer ${EXTERNAL_SECRET}" -O - "http://127.0.0.1:${EXTERNAL_PORT:-19097}/version" >/dev/null && \
+    wget -q -T 3 -O - "http://127.0.0.1:${WEB_CONFIG_PORT:-9097}/healthz" >/dev/null || exit 1
+ENTRYPOINT ["/bin/run"]

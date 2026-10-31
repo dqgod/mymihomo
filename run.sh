@@ -1,79 +1,26 @@
 #!/usr/bin/env sh
-
 set -eu
-
 CONF_FILE="${CONF_FILE:-/root/conf/config.yaml}"
 MIHOMO_HOME="${MIHOMO_HOME:-/root/.config/mihomo}"
-CRON_LOG="${CRON_LOG:-/root/conf/cron_history}"
-WEB_CONFIG_PORT="${WEB_CONFIG_PORT:-18080}"
-WEB_ENV_FILE="${WEB_ENV_FILE:-/root/conf/web.env}"
-WEB_API_LOG="${WEB_API_LOG:-/root/conf/web_api.log}"
-
-log() {
-  printf '[mymihomo] %s\n' "$1"
+WEB_CONFIG_PORT="${WEB_CONFIG_PORT:-9097}"
+[ -s "$(dirname "$CONF_FILE")/auth.json" ] || [ -n "${WEB_CONFIG_SECRET:-${EXTERNAL_SECRET:-}}" ] || { echo '请设置 WEB_CONFIG_SECRET 登录密码' >&2; exit 1; }
+mkdir -p "$(dirname "$CONF_FILE")" "$MIHOMO_HOME"
+# Prepare from persisted profiles; restarting never replaces a good config with a fresh download.
+mymihomo prepare
+/mihomo -d "$MIHOMO_HOME" -f "$CONF_FILE" &
+CORE_PID=$!
+mymihomo serve -addr ":${WEB_CONFIG_PORT}" -c "$CONF_FILE" &
+WEB_PID=$!
+cleanup() {
+  kill "$CORE_PID" "$WEB_PID" 2>/dev/null || true
+  wait "$CORE_PID" 2>/dev/null || true
+  wait "$WEB_PID" 2>/dev/null || true
 }
-
-fatal() {
-  printf '[mymihomo] %s\n' "$1" >&2
-  exit 1
-}
-
-write_bootstrap_config() {
-  bind_addr="${EXTERNAL_BIND:-0.0.0.0}"
-  ext_port="${EXTERNAL_PORT:-9090}"
-  mixed_port="${MIXED_PORT:-7890}"
-
-  cat > "$CONF_FILE" <<CFG
-mixed-port: ${mixed_port}
-allow-lan: true
-mode: Rule
-log-level: info
-external-controller: ${bind_addr}:${ext_port}
-external-ui: ${MIHOMO_HOME}/ui
-proxies: []
-proxy-groups: []
-rules:
-  - MATCH,DIRECT
-CFG
-}
-
-for required_cmd in mymihomo crond crontab; do
-  command -v "$required_cmd" >/dev/null 2>&1 || fatal "缺少必要命令: $required_cmd"
+trap 'cleanup; exit 0' TERM INT
+# Restart the container if either required process exits.
+while kill -0 "$CORE_PID" 2>/dev/null && kill -0 "$WEB_PID" 2>/dev/null; do
+  sleep 2 &
+  wait $! || true
 done
-[ -x /mihomo ] || fatal "缺少必要命令: /mihomo"
-
-mkdir -p "$(dirname "$CONF_FILE")" "$MIHOMO_HOME" "$(dirname "$CRON_LOG")"
-
-BOOTSTRAP_MODE="false"
-TMP_CONF="${CONF_FILE}.download"
-if mymihomo download -o "$TMP_CONF" && /mihomo -d "$MIHOMO_HOME" -f "$TMP_CONF" -t; then
-  mv -f "$TMP_CONF" "$CONF_FILE"
-else
-  rm -f "$TMP_CONF" >/dev/null 2>&1 || true
-  if [ -s "$CONF_FILE" ] && /mihomo -d "$MIHOMO_HOME" -f "$CONF_FILE" -t; then
-    log "订阅拉取或校验失败，继续使用已有配置。"
-  else
-    log "未获取到有效订阅，进入引导模式。"
-    write_bootstrap_config
-    BOOTSTRAP_MODE="true"
-  fi
-fi
-
-mymihomo serve -addr ":${WEB_CONFIG_PORT}" -c "$CONF_FILE" -e "$WEB_ENV_FILE" >> "$WEB_API_LOG" 2>&1 &
-CONFIG_API_PID="$!"
-sleep 1
-if ! kill -0 "$CONFIG_API_PID" >/dev/null 2>&1; then
-  fatal "配置 API 启动失败，请检查日志: ${WEB_API_LOG}"
-fi
-log "配置 API 已启动: ${WEB_CONFIG_PORT}，持久化文件: ${WEB_ENV_FILE}"
-
-if [ "$BOOTSTRAP_MODE" = "false" ] && [ -n "${CRON_EXPRESSION:-}" ]; then
-  crontab -r >/dev/null 2>&1 || true
-  echo "$CRON_EXPRESSION mymihomo update -c $CONF_FILE >> $CRON_LOG 2>&1" | crontab -
-  crond
-  log "已启用定时更新: ${CRON_EXPRESSION}"
-else
-  log "当前处于引导模式或未设置 CRON_EXPRESSION，跳过定时更新"
-fi
-
-exec /mihomo -d "$MIHOMO_HOME" -f "$CONF_FILE"
+cleanup
+exit 1

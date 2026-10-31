@@ -32,7 +32,7 @@ func downloadConfig(confFile string) error {
 		return fmt.Errorf("创建目录失败: %w", err)
 	}
 
-	fmt.Printf("从 %s 下载配置文件并写入到 %s\n", confURL, confFile)
+	fmt.Printf("下载订阅配置并写入到 %s\n", confFile)
 
 	// 下载配置文件
 	data, err := fetchConfig(confURL)
@@ -75,12 +75,6 @@ func downloadConfig(confFile string) error {
 
 	if err := os.WriteFile(confFile, output, 0644); err != nil {
 		return fmt.Errorf("写入配置文件失败: %w", err)
-	}
-
-	// 渲染导航页
-	indexPath := "/root/.config/mihomo/ui/index.html"
-	if err := renderIndex(indexPath); err != nil {
-		fmt.Printf("警告: 渲染导航页失败: %v\n", err)
 	}
 
 	fmt.Println("配置文件处理完成")
