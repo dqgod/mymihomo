@@ -4,7 +4,7 @@
 
 ## 边界
 
-- 不得停止、重启或修改原 `clash` 容器；新实例为 `mymihomo-dev`，代理 7897。
+- 主实例为 `mymihomo-dev`，主机代理端口默认 7891，容器内监听 7897。旧 `clash` 已退役，保持停止且关闭自动重启；只有明确的迁移/回退请求才操作它。
 - LAN 仅绑定指定 `MYMIHOMO_LAN_IP` 和回环地址，不扩大暴露到所有网卡。
 - 9097 是登录网关，内核 19097 仅容器回环。不得绕过登录发布静态 UI/内核 API。
 - `.env`、`conf/`、`.build/` 含密钥、订阅或构建资源，不提交。不要输出订阅链接和密钥。
@@ -30,6 +30,7 @@
 - `run.sh`：准备配置并监督内核与网关；任一进程退出时容器退出重启。
 - `Dockerfile`：完整源码构建；`Dockerfile.local`：本机 compatible 内核及预构建前端。
 - `compose.local.yaml`：独立实例，私有配置和 runtime 卷。
+- `compose.server.yaml`：无桌面服务器部署，代理和登录网关均只绑定回环；主机代理/网页端口可在私有 `.env` 调整，便于先验证再切换。
 - `scripts/build-ui.sh`：锁定依赖安装、类型检查和前端构建。
 - `scripts/tests/integration.py`：隔离容器的真实内核与浏览器集成验证。
 - `scripts/prepare-ui.py`：兼容旧构建入口，转调源码构建，不下载旧面板。
@@ -39,7 +40,7 @@
 Go 1.23+：`go test ./...`；前端 Node 24：`scripts/build-ui.sh`。
 运行时编辑必须验证更新/重启持久化、字段级跟随、引用校验及多窗口版本冲突；隔离集成脚本为 `scripts/tests/runtime_edits.py`。
 修改鉴权、更新链路或调度时，验证未登录拒绝、登录后页面/API/WebSocket、失败保留配置、时区与重启持久化。
-部署前在独立实例验证真实 Mihomo 校验和热加载；部署后检查新实例健康和原 Clash 容器 ID/启动时间未变。
+部署前在独立实例验证真实 Mihomo 校验和热加载；部署后检查新实例健康和对外代理可用，旧 Clash 保持停止。端口迁移必须先备份并准备独立运行的回退脚本。
 新增文件或更改职责后同步更新本文和对应文档。README 仅保留项目介绍、功能截图和快速开始；详细用法放 `docs/CONFIGURATION.md`，变更记录放 `CHANGELOG.md`。
 
 ## 文档与截图

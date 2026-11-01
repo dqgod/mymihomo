@@ -71,11 +71,13 @@ function main(config, profileName) {
 | `WEB_CONFIG_PORT` | 网关端口，默认 9097 |
 | `EXTERNAL_PORT` | 容器内部内核 API 端口，默认 19097；不向主机映射 |
 | `MIXED_PORT` | HTTP/SOCKS 混合代理端口，默认 7897 |
+| `MYMIHOMO_PROXY_PORT` | Compose 发布到主机的代理端口，默认 7891，映射到容器的 `MIXED_PORT` |
 | `HTTPS_PROXY` / `HTTP_PROXY` | 订阅选择“代理更新”且未指定代理时使用的下载代理 |
 | `CONF_URL` / `CRON_EXPRESSION` | 首次初始化订阅使用；迁移后请在网页中修改 |
 | `TZ` | 首次初始化的时区，默认 Asia/Hong_Kong |
 
 订阅里的 API 绑定、密钥、代理端口不能覆盖部署设置。TUN 默认关闭。端口在设置页只读：网页不能修改 Docker 映射，需同步调整 `.env` 与 `compose.local.yaml` 并重建容器。API 也会拒绝修改这些端口。原生 zashboard 设置页仍可以调整运行模式等状态；需要在后续订阅更新后保留的 YAML 设置请写入全局覆写。网页访问密码修改即时生效；部署内核密钥修改需重建容器。
+默认对外使用 `7891`，容器内部仍监听 `7897`，因此网页运行配置显示 `7897` 是正常的。订阅下载使用自身代理时，容器里的地址应为 `http://127.0.0.1:7897`。
 
 ## 构建
 

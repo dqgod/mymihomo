@@ -1,17 +1,32 @@
 # Linux 服务器部署
 
 在本仓库目录执行部署，开发分支为 `dev`。以下 `192.168.1.100` 为示例地址，请在私有 `.env` 中设置实际 `MYMIHOMO_LAN_IP`。
-只操作 Compose 项目 `mymihomo-dev`，不得操作原 `clash` 容器及它的代理。
+日常只操作 Compose 项目 `mymihomo-dev`。旧 `clash` 已退役，保持停止并关闭自动重启；它保留用于明确请求的回退，不再占用代理端口。
 
 ## 入口
 
 - 局域网 zashboard：`http://192.168.1.100:9097`
 - 本机：`http://127.0.0.1:9097`
-- 混合代理：`127.0.0.1:7897` 和 `192.168.1.100:7897`（HTTP/SOCKS5）
+- 混合代理：`127.0.0.1:7891` 和 `192.168.1.100:7891`（HTTP/SOCKS5），容器内部监听 `7897`
 - 内核 API：容器内 `127.0.0.1:19097`，不对主机发布
-- 旧配置接口 18087 已移除；原 Clash 的 7891/9090 不变
+- 旧配置接口 18087 和原 Clash 的 9090 不再提供服务
 
 所有页面、管理 API、内核 REST 和 WebSocket 都经过登录网关。使用 `.env` 的 `WEB_CONFIG_SECRET` 登录；未单独配置时回退 `EXTERNAL_SECRET`。不再把内核密钥填到浏览器。
+
+## 无桌面服务器
+
+只需要本机访问的服务器使用 `compose.server.yaml`，它只发布到 `127.0.0.1`，不需要填写 `MYMIHOMO_LAN_IP`。
+在服务器克隆本仓库并切换到 `master`；复制 `.env.example` 为 `.env`，设置私有密钥并准备配置，再构建或导入同一代码版本生成的镜像：
+
+```sh
+docker compose -f compose.server.yaml up -d --no-build
+docker compose -f compose.server.yaml ps
+```
+
+主机代理端口由 `MYMIHOMO_PROXY_PORT` 控制，网页端口由 `MYMIHOMO_WEB_PORT` 控制；默认分别为 `7891`、`9097`。
+迁移时先选择空闲临时代理端口验证 HTTP/SOCKS5、订阅更新、密码与配置；通过后再停止旧实例、关闭其自动重启并接管原端口。
+保留旧容器、配置和自动回退脚本，确认成功后旧实例继续保持停止。
+内存较小的主机可导入其他同架构机器构建并验证的镜像，部署代码仍从同一 Git 仓库获取；`.env`、订阅、缓存及日志不进入 Git。
 
 ## 构建与更新
 
@@ -22,7 +37,7 @@
 
 ```sh
 cd /path/to/mymihomo
-# 通过仍在运行的原代理下载前端依赖
+# 通过当前实例的主机代理下载前端依赖
 HTTPS_PROXY=http://127.0.0.1:7891 HTTP_PROXY=http://127.0.0.1:7891 scripts/build-ui.sh
 
 docker build --network=host \
@@ -35,7 +50,7 @@ docker compose -f compose.local.yaml ps
 ```
 
 本地 Dockerfile 使用上一步生成的 `web/zashboard/dist`；通用 Dockerfile 会自行构建前端。
-升级前备份 `conf/`、`.env` 和旧镜像标签。只重建新实例，原 Clash 持续服务。
+升级前备份 `conf/`、`.env` 和旧镜像标签。只重建本实例，旧 Clash 保持停止。
 
 ## 订阅更新
 
@@ -50,7 +65,7 @@ docker exec mymihomo-dev mymihomo update
 定时任务以 `conf/profiles.json` 为准，网页修改立即生效，不依赖旧 cron 环境变量。
 
 “代理更新”的请求从容器发出，`127.0.0.1` 指容器自身。
-使用主机原代理时可填 `http://host.docker.internal:7891`（Compose 已配置 host-gateway）。
+使用自身代理时填 `http://127.0.0.1:7897`，不依赖旧容器或 Docker 主机网关。
 留空时使用 `.env` 的 `HTTPS_PROXY` / `HTTP_PROXY`；选择直连会明确绕过这些变量。
 
 ## 密钥与私有数据
@@ -67,7 +82,7 @@ docker exec mymihomo-dev mymihomo update
 ## 网页端口显示
 
 设置页端口为只读，表示容器内部监听值。网页修改监听端口不能自动改 Docker
-主机映射，所以本部署会拒绝这种修改。如需把主机访问端口从 7897 改到 7898，
-可只调整 Compose 左侧主机端口为 `127.0.0.1:7898:7897`；如需连容器端口
-一起修改，则同步修改 `MIXED_PORT`、Compose 环境覆盖和映射右侧后重建。
-代理端口仍为 7897，已增加指定局域网 IP 的映射，便于手机和其他局域网设备连接。
+主机映射，所以本部署会拒绝这种修改。如需把主机访问端口从 7891 改到 7898，
+在私有 `.env` 设置 `MYMIHOMO_PROXY_PORT=7898` 后重建容器即可；容器内部仍为 `MIXED_PORT=7897`。
+如需连容器端口一起修改，则同时修改 `MIXED_PORT` 和容器内使用的下载代理地址。
+映射仅绑定回环和指定局域网 IP，便于手机和其他局域网设备连接。

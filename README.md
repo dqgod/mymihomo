@@ -62,11 +62,12 @@ docker compose -f compose.local.yaml up -d
 
 | 默认端口 | 用途 |
 | --- | --- |
-| `7897` | HTTP / SOCKS5 混合代理，供本机和指定局域网地址使用 |
+| `7891` | HTTP / SOCKS5 混合代理，供本机和指定局域网地址使用；容器内部监听 `7897` |
 | `9097` | 带登录认证的 zashboard 和管理 API |
 | `19097` | 容器内部的 Mihomo 控制接口，不映射到主机 |
 
 旧款 CPU 如需 compatible 内核，请参考 [Linux 部署指南](LOCAL_DEPLOYMENT.md)。
+只需服务器本机访问时，可使用 `compose.server.yaml`；它将代理和网页端口都绑定到回环地址，部署方法见同一指南。
 
 ## 配置如何生效
 
@@ -82,6 +83,7 @@ docker compose -f compose.local.yaml up -d
 远程订阅原文只读。页面编辑不会回写原始订阅或扩展脚本；只改过的字段才覆盖基准值，其余字段继续跟随订阅更新。上游移除被编辑的项时，会保留最后有效版本并标记，供你检查处理。校验失败时保留原有有效配置。
 
 私有数据保存在 `.env` 和 `conf/`，更新镜像时应保留并备份这些文件。
+主机代理端口由 `MYMIHOMO_PROXY_PORT` 控制，容器内部监听端口由 `MIXED_PORT` 控制；两者可以不同。
 
 ## 文档与开发
 

@@ -1,0 +1,27 @@
+# Headless server deployment: publish only on loopback.
+name: mymihomo-dev
+services:
+  mymihomo:
+    image: ${MYMIHOMO_IMAGE:-local/dqgod-mymihomo:dev}
+    container_name: mymihomo-dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SAFE_PATHS: /root/conf
+      EXTERNAL_BIND: 127.0.0.1
+      EXTERNAL_PORT: 19097
+      WEB_CONFIG_PORT: 9097
+      MIXED_PORT: 7897
+    ports:
+      - "127.0.0.1:${MYMIHOMO_PROXY_PORT:-7891}:7897"
+      - "127.0.0.1:${MYMIHOMO_WEB_PORT:-9097}:9097"
+    volumes:
+      - ./conf:/root/conf
+      - runtime:/root/.config/mihomo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  runtime:
