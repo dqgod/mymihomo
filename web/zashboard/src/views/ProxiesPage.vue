@@ -1,5 +1,11 @@
 <template>
+  <RuntimeEditor
+    v-if="runtimeEditor === 'groups'"
+    initial-kind="groups"
+    @close="runtimeEditor = null"
+  />
   <div
+    v-else
     class="relative flex size-full overflow-hidden"
     :class="[disableProxiesPageTextSelect ? 'select-none' : '']"
   >
@@ -42,6 +48,8 @@
 </template>
 
 <script setup lang="ts">
+import RuntimeEditor from '@/components/runtime/RuntimeEditor.vue'
+import { runtimeEditor } from '@/store/runtime-edits'
 import { proxiesTabShow } from '@/store/proxies'
 import VirtualColumn from '@/components/common/VirtualColumn.vue'
 import ProxiesCtrl from '@/components/controls/ProxiesCtrl'

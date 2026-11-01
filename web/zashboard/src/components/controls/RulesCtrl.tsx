@@ -4,6 +4,7 @@ import { useCtrlsBar } from '@/composables/use-ctrls-bar'
 import { LIST_DISPLAY_STYLE, RULE_TAB_TYPE } from '@/constant'
 import { showNotification } from '@/helper/notification'
 import { rulesFilter, rulesTabShow } from '@/store/rules'
+import { openRuntimeEditor } from '@/store/runtime-edits'
 import {
   disconnectOnRuleDisable,
   displayLatencyInRule,
@@ -172,8 +173,14 @@ export default defineComponent({
               {upgradeAllIcon}
             </div>
           )}
-          <div class="flex w-full items-center gap-2">
+          <div class="flex w-full flex-wrap items-center gap-2">
             {searchInput}
+            <button
+              class="btn btn-sm"
+              onClick={() => openRuntimeEditor('rules')}
+            >
+              编辑规则
+            </button>
             {settingsModal}
           </div>
         </div>
@@ -181,6 +188,12 @@ export default defineComponent({
         <div class="flex flex-wrap items-center gap-2 p-2">
           {showTabs.value && tabs}
           {searchInput}
+          <button
+            class="btn btn-sm"
+            onClick={() => openRuntimeEditor('rules')}
+          >
+            编辑规则
+          </button>
           <div class="flex-1"></div>
           {upgradeAllIcon}
           {settingsModal}

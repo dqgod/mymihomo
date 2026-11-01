@@ -15,6 +15,7 @@ import { isProxyNodeSearchMode, toggleProxySearchMode } from '@/helper/proxy-sea
 import { getMinCardWidth } from '@/helper/utils'
 import { proxiesFilter, proxiesTabShow } from '@/store/proxies'
 import { isProxyFolderModeActive } from '@/store/proxy-folders'
+import { openRuntimeEditor } from '@/store/runtime-edits'
 import {
   automaticDisconnection,
   collapseGroupMap,
@@ -364,9 +365,15 @@ export default defineComponent({
               {upgradeAllIcon}
             </div>
           )}
-          <div class="flex w-full gap-2">
+          <div class="flex w-full flex-wrap gap-2">
             {modeSelect}
             {searchInput}
+            <button
+              class="btn btn-sm"
+              onClick={() => openRuntimeEditor('groups')}
+            >
+              编辑代理组
+            </button>
             {settingsModal}
             {manageEntriesIcon}
             {toggleCollapseAll}
@@ -378,6 +385,12 @@ export default defineComponent({
           {hasProviders.value && tabs}
           {modeSelect}
           <div class="flex flex-1">{searchInput}</div>
+          <button
+            class="btn btn-sm"
+            onClick={() => openRuntimeEditor('groups')}
+          >
+            编辑代理组
+          </button>
           {upgradeAllIcon}
           {settingsModal}
           {manageEntriesIcon}

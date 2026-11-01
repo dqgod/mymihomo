@@ -38,3 +38,12 @@ helpers for per-group controls; `BackendPortsGrid.vue` displays Docker ports rea
 Access controls are in `components/settings/AccessSettings.vue` on the settings
 page (including the mobile category index). Logout buttons were removed from the
 subscription page and main sidebar. Password rotation is handled by the Go gateway.
+
+Runtime profile editing is implemented in `components/runtime/RuntimeEditor.vue`
+and `store/runtime-edits.ts`, opened by the proxy/rule page toolbars. Rule-card and
+table controls lead to the persistent editor instead of core-only disable toggles.
+The source retains upstream monitoring views alongside these managed edit views.
+
+`SearchablePolicySelect.vue` provides the runtime rule policy list. It opens all
+available policies independently of the current value, supports explicit search
+and keyboard navigation, and renders above editor dialogs on mobile and desktop.

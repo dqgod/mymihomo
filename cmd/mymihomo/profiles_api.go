@@ -155,6 +155,7 @@ func (m *profileManager) handleProfiles(w http.ResponseWriter, r *http.Request) 
 	} else if path == "" && r.Method == http.MethodPost {
 		p := Profile{Name: "导入的订阅", Timeout: 45, Retries: 1, UserAgent: "Clash Verge/2.5.2"}
 		requestErr = decodeRequest(w, r, &p)
+		p.RuntimeEdits = RuntimeEdits{}
 		p.ID = newID()
 		p.AttemptedAt = time.Now()
 		p.UpdatedAt = time.Time{}
@@ -238,7 +239,7 @@ func (m *profileManager) handleProfiles(w http.ResponseWriter, r *http.Request) 
 					requestErr = m.validate(data)
 				}
 				if requestErr == nil {
-					requestErr = m.commit(s, s.ActiveID == id)
+					requestErr = m.commitProfile(s, id)
 				}
 			}
 		} else if len(parts) == 2 && parts[1] == "content" && r.Method == http.MethodPut {
@@ -279,7 +280,7 @@ func (m *profileManager) handleProfiles(w http.ResponseWriter, r *http.Request) 
 						requestErr = m.validate(data)
 					}
 					if requestErr == nil {
-						requestErr = m.commit(s, s.ActiveID == id)
+						requestErr = m.commitProfile(s, id)
 					}
 				}
 			}

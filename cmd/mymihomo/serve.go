@@ -193,6 +193,14 @@ func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, 200, map[string]interface{}{"authenticated": true, "managed": true})
 		return
 	}
+	if strings.TrimRight(r.URL.Path, "/") == "/rules/disable" && r.Method != http.MethodGet {
+		respondError(w, 409, fmt.Errorf("请在规则编辑页启用或禁用，变更会持久保存"))
+		return
+	}
+	if r.URL.Path == "/api/runtime-edits" {
+		g.manager.handleRuntimeEdits(w, r)
+		return
+	}
 	if r.URL.Path == "/api/profiles" || strings.HasPrefix(r.URL.Path, "/api/profiles/") {
 		g.manager.handleProfiles(w, r)
 		return

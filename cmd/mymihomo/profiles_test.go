@@ -41,6 +41,7 @@ func managerFixture(t *testing.T) (*profileManager, ProfileState) {
 	t.Setenv("EXTERNAL_SECRET", "inner")
 	dir := t.TempDir()
 	m := newProfileManager(filepath.Join(dir, "config.yaml"))
+	m.readSettings = nil
 	m.validate = func([]byte) error { return nil }
 	m.apply = func([]byte) error { return nil }
 	p := Profile{ID: "one", Name: "One", Content: "proxies: []\nproxy-groups: []\nrules: ['MATCH,DIRECT']\n", Timeout: 1, Retries: 0, UserAgent: "test", UpdatedAt: time.Now(), AttemptedAt: time.Now()}

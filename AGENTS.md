@@ -1,6 +1,6 @@
-# mymihomo 开发约定
+# AGENTS.md — mymihomo
 
-开发分支 `dev`，维护仓库 `dqgod/mymihomo`。这是服务端 Mihomo + 带登录网关的 zashboard，前端基于 v3.30.0。
+默认主分支 `master`，开发分支 `dev`，维护仓库 `dqgod/mymihomo`。这是服务端 Mihomo + 带登录网关的 zashboard，前端基于 v3.30.0。
 
 ## 边界
 
@@ -15,6 +15,8 @@
 - `cmd/mymihomo/main.go`：CLI 入口；`envfile.go`：旧环境文件迁移读取。
 - `profiles.go`：原子存储、下载、事务应用、调度和部署边界。
 - `profiles_api.go`：订阅 CRUD、切换、更新、内容/扩展编辑、排序和导出。
+- `runtime_edits.go` / `runtime_edits_api.go`：按订阅保存运行时差异，字段级重放、引用同步、启停、排序、版本冲突及恢复默认。
+- `RuntimeEditor.vue`：代理页和规则页的持久化编辑入口；原始数据与现有扩展不得回写。
 - `extensions.go`：YAML 合并及限时 JavaScript 变换。
 - `serve.go`：登录会话、受保护静态资源、管理 API、内核 REST/WebSocket 网关。
 - `auth.go`：持久化密码摘要、会话/升级连接撤销和容器本地 CLI 认证。
@@ -35,6 +37,16 @@
 ## 验证
 
 Go 1.23+：`go test ./...`；前端 Node 24：`scripts/build-ui.sh`。
+运行时编辑必须验证更新/重启持久化、字段级跟随、引用校验及多窗口版本冲突；隔离集成脚本为 `scripts/tests/runtime_edits.py`。
 修改鉴权、更新链路或调度时，验证未登录拒绝、登录后页面/API/WebSocket、失败保留配置、时区与重启持久化。
 部署前在独立实例验证真实 Mihomo 校验和热加载；部署后检查新实例健康和原 Clash 容器 ID/启动时间未变。
-新增文件或更改职责后同步更新本文与 README/部署文档。
+新增文件或更改职责后同步更新本文和对应文档。README 仅保留项目介绍、功能截图和快速开始；详细用法放 `docs/CONFIGURATION.md`，变更记录放 `CHANGELOG.md`。
+
+## 文档与截图
+
+- 本文件是仓库的统一开发维护入口。
+- README 截图放在 `docs/images/`，只从独立演示环境生成，使用虚构订阅和节点数据。
+- 禁止把生产截图、订阅地址、密码、令牌、实际机器 IP/路径、日志或备份提交到仓库。
+- `scripts/tests/policy_picker.py` 验证完整策略列表、搜索与键盘操作，并生成演示截图。
+- 策略选择器 `SearchablePolicySelect.vue` 必须在已有值时也能展开完整选项，支持手机弹窗、搜索、方向键和 Escape；不能退回浏览器 datalist 的隐式筛选行为。
+- 现有修改先检查并保留；验证按改动范围执行，不为纯文档修改重启服务。报告改动时说明测试、部署和提交状态。

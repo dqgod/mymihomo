@@ -32,24 +32,25 @@ type SubscriptionUsage struct {
 	Expire   int64 `json:"expire"`
 }
 type Profile struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	URL         string             `json:"url"`
-	Homepage    string             `json:"homepage"`
-	Content     string             `json:"content,omitempty"`
-	Merge       string             `json:"merge"`
-	Script      string             `json:"script"`
-	Cron        string             `json:"cron"`
-	UseProxy    bool               `json:"use_proxy"`
-	ProxyURL    string             `json:"proxy_url"`
-	UserAgent   string             `json:"user_agent"`
-	Base64      bool               `json:"base64"`
-	Timeout     int                `json:"timeout"`
-	Retries     int                `json:"retries"`
-	UpdatedAt   time.Time          `json:"updated_at"`
-	AttemptedAt time.Time          `json:"attempted_at"`
-	LastError   string             `json:"last_error"`
-	Usage       *SubscriptionUsage `json:"usage,omitempty"`
+	RuntimeEdits RuntimeEdits       `json:"runtime_edits,omitempty"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	URL          string             `json:"url"`
+	Homepage     string             `json:"homepage"`
+	Content      string             `json:"content,omitempty"`
+	Merge        string             `json:"merge"`
+	Script       string             `json:"script"`
+	Cron         string             `json:"cron"`
+	UseProxy     bool               `json:"use_proxy"`
+	ProxyURL     string             `json:"proxy_url"`
+	UserAgent    string             `json:"user_agent"`
+	Base64       bool               `json:"base64"`
+	Timeout      int                `json:"timeout"`
+	Retries      int                `json:"retries"`
+	UpdatedAt    time.Time          `json:"updated_at"`
+	AttemptedAt  time.Time          `json:"attempted_at"`
+	LastError    string             `json:"last_error"`
+	Usage        *SubscriptionUsage `json:"usage,omitempty"`
 }
 type ProfileState struct {
 	Version      int       `json:"version"`
@@ -60,11 +61,12 @@ type ProfileState struct {
 	Profiles     []Profile `json:"profiles"`
 }
 type profileManager struct {
-	mu       sync.Mutex
-	path     string
-	confFile string
-	validate func([]byte) error
-	apply    func([]byte) error
+	mu           sync.Mutex
+	path         string
+	confFile     string
+	validate     func([]byte) error
+	apply        func([]byte) error
+	readSettings func() (map[string]interface{}, error)
 }
 
 func newID() string {
@@ -81,6 +83,7 @@ func newProfileManager(confFile string) *profileManager {
 	m := &profileManager{path: profilePath(confFile), confFile: confFile}
 	m.validate = m.validateRuntime
 	m.apply = applyRuntime
+	m.readSettings = readCoreSettings
 	return m
 }
 func stageFile(path string, data []byte) (string, error) {
@@ -339,7 +342,7 @@ func parseUsage(value string) *SubscriptionUsage {
 	}
 	return &SubscriptionUsage{Upload: m["upload"], Download: m["download"], Total: m["total"], Expire: m["expire"]}
 }
-func effectiveConfig(s ProfileState, p Profile) ([]byte, error) {
+func baselineConfig(s ProfileState, p Profile) (map[string]interface{}, error) {
 	c, err := parseConfig(p.Content)
 	if err != nil {
 		return nil, err
@@ -351,6 +354,16 @@ func effectiveConfig(s ProfileState, p Profile) ([]byte, error) {
 	c, err = applyExtensions(c, p.Merge, p.Script, p.Name)
 	if err != nil {
 		return nil, fmt.Errorf("订阅扩展: %w", err)
+	}
+	return c, nil
+}
+func effectiveConfig(s ProfileState, p Profile) ([]byte, error) {
+	c, err := baselineConfig(s, p)
+	if err != nil {
+		return nil, err
+	}
+	if err = applyRuntimeEdits(c, p.RuntimeEdits); err != nil {
+		return nil, fmt.Errorf("运行时编辑: %w", err)
 	}
 	modifyConfig(c)
 	// The public UI is served by the authenticated gateway, never by Mihomo.
@@ -372,7 +385,7 @@ func (m *profileManager) snapshot() (ProfileState, error) {
 	defer m.mu.Unlock()
 	return m.read()
 }
-func (m *profileManager) commit(s ProfileState, apply bool) error {
+func (m *profileManager) commit(s ProfileState, apply bool, preserveLive ...bool) error {
 	if !apply {
 		return m.save(s)
 	}
@@ -384,7 +397,32 @@ func (m *profileManager) commit(s ProfileState, apply bool) error {
 	if err != nil {
 		return err
 	}
+	if len(preserveLive) > 0 && preserveLive[0] && m.readSettings != nil {
+		live, e := m.readSettings()
+		if e != nil {
+			return e
+		}
+		cfg, e := parseConfig(string(data))
+		if e != nil {
+			return e
+		}
+		for _, key := range []string{"mode", "log-level", "ipv6", "tcp-concurrent", "unified-delay", "find-process-mode"} {
+			if v, ok := live[key]; ok {
+				cfg[key] = v
+			}
+		}
+		if v, ok := live["sniffing"]; ok {
+			_ = mergeConfig(cfg, map[string]interface{}{"sniffer": map[string]interface{}{"enable": v}})
+		}
+		data, e = yaml.Marshal(cfg)
+		if e != nil {
+			return e
+		}
+	}
 	if err = m.validate(data); err != nil {
+		return err
+	}
+	if err = captureRuntimeEdits(s, &s.Profiles[index]); err != nil {
 		return err
 	}
 	storeBytes, err := json.MarshalIndent(s, "", "  ")
@@ -450,7 +488,7 @@ func (m *profileManager) updateLocked(id string, proxy *bool) error {
 			}
 		}
 		if err == nil {
-			err = m.commit(s, s.ActiveID == id)
+			err = m.commitProfile(s, id)
 		}
 	}
 	if err != nil {

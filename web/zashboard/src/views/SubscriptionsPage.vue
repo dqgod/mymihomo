@@ -688,7 +688,7 @@ onMounted(() => run(reload))
     </div>
     <p class="mt-4 text-xs leading-6 opacity-45">
       应用顺序：原始订阅 → 全局覆写 → 全局脚本 → 订阅覆写 →
-      订阅脚本。校验通过后应用；更新失败时保留上次有效配置。
+      订阅脚本 → 运行时编辑。校验通过后应用；更新失败时保留上次有效配置。
     </p>
 
     <Teleport to="body">

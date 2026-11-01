@@ -1,100 +1,103 @@
 # mymihomo
 
-基于 Mihomo 和 zashboard 的服务端代理管理。开发分支为 `dev`。
-前端源码随本仓库维护，当前基于 [zashboard v3.30.0](https://github.com/Zephyruso/zashboard/releases/tag/v3.30.0)。
+**在浏览器里管理服务器上的 Mihomo 代理、订阅和运行配置。**
 
-## Web 使用
+mymihomo 将 Mihomo 内核、zashboard 面板与配置管理服务放在同一个 Docker 部署中，适合 Linux 服务器、家庭服务器和局域网设备。无需桌面环境，电脑和手机都可以完成订阅更新、代理切换、规则编辑与访问密码管理。
 
-打开部署地址 `http://<服务器局域网IP>:9097`，输入 `WEB_CONFIG_SECRET` 登录。
-未设置此项时使用 `EXTERNAL_SECRET`。通过设置页修改过密码后，以保存的新密码为准。登录后自动连接当前实例，不需要再填写 API 地址或内核密钥。
-会话有效期 12 小时；退出登录或重启容器后需要重新登录。
-设置页的“访问与安全”提供修改访问密码和退出登录。修改密码需验证当前密码并确认新密码；保存后所有会话及 WebSocket 失效，重新登录即可，代理服务不重启。密码以 bcrypt 摘要保存在 `conf/auth.json`，重启后仍生效，不修改内核密钥。
+本项目在以下两个开源项目基础上改造并整合：
 
-原导航页、Dashboard 和本项目的 YACD 已移除，统一使用 zashboard。
+1. **[wenfer/mymihomo](https://github.com/wenfer/mymihomo)**：本仓库的 fork 来源，提供 Docker 部署、订阅下载和配置处理的后端基础。
+2. **[Zephyruso/zashboard](https://github.com/Zephyruso/zashboard)**：Web 面板基础。本仓库维护其 v3.30.0 源码，并加入订阅管理、运行时编辑和访问管理等功能。
 
-在侧边栏的 **订阅** 页面：
+代理内核继续使用 [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)。后端与定制前端在本仓库共同维护，默认主分支为 `master`，开发分支为 `dev`。
 
-- 粘贴远程订阅链接导入，或通过“新建”导入本地 YAML 文件。
-- 点击“使用”切换当前配置；切换使用已下载并保存的内容，不自动再次下载。
-- “更新”下载远程订阅；更多菜单可指定直连或代理。当前订阅更新成功后自动应用，其他订阅只更新缓存。
-- “编辑信息”设置名称、链接、五列 Cron、代理、User-Agent、超时、重试和 Base64 解码。
-- 定时器读取持久化订阅信息，保存后立即生效。`30 12 * * *` 表示每天 12:30，按页面显示的时区执行（默认 `Asia/Hong_Kong`）；留空关闭。
-- 远程订阅的原始文件、规则、节点和代理组只读，更多菜单可查看。只有本地配置允许直接编辑；修改远程订阅请使用覆写或脚本。仍支持排序、下载、分享二维码和删除。
-- 流量、到期时间与主页来自订阅响应头；服务商未提供时不显示。
-- 全局覆写与脚本对所有订阅生效。删除当前订阅前需要先切换配置。
+## 能做什么
 
-**更新链路：** 原始订阅 → 全局 YAML 覆写 → 全局 JavaScript → 单订阅覆写 → 单订阅脚本 → 部署端口和内核访问设置 → Mihomo 校验 → 热加载。
-下载、脚本或校验失败时，保留上次有效配置。远程原始内容在界面和 API 中均禁止修改；覆写和脚本会在每次更新时重新应用。
+- **订阅管理**：导入链接或本地 YAML，管理多份配置，手动/定时更新，支持直连或代理下载。
+- **配置扩展**：全局与单订阅 YAML 覆写、JavaScript 脚本；应用前进行内核校验。
+- **代理管理**：选择节点、测速、延迟排序、定位当前节点；新增或编辑手动/自动选择代理组。
+- **规则管理**：编辑规则与规则集、启用/禁用、调整匹配顺序，从完整策略列表中选择目标。
+- **保留自己的改动**：运行时编辑按订阅独立保存，更新和重启后继续叠加；支持变更筛选、对比、恢复默认及批量删除新增项。
+- **访问管理**：统一登录入口，在设置页修改密码和退出登录，电脑和手机共用一套界面。
 
-覆写示例：
+## 界面预览
 
-```yaml
-prepend-rules:
-  - DOMAIN-SUFFIX,example.com,DIRECT
-dns:
-  enable: true
-```
+以下截图来自独立演示环境，订阅、节点和流量数据均为示例。
 
-对象递归合并；普通数组替换；`prepend-` / `append-` 前缀在数组前后追加，`null` 删除键。规则通常用 `prepend-rules`，避免排在 `MATCH` 之后。
+### 订阅与全局扩展
 
-脚本示例（与 Clash Verge 的 `main` 入口兼容）：
+![订阅管理与全局扩展](docs/images/subscriptions.png)
 
-```js
-function main(config, profileName) {
-  config.rules = ['DOMAIN-SUFFIX,example.com,DIRECT', ...(config.rules || [])];
-  return config;
-}
-```
+### 代理组与节点
 
-脚本必须同步返回配置对象，最多运行 2 秒，不提供文件、网络、Node.js 或进程接口；不支持依赖这些接口的桌面端脚本。二维码完全在浏览器内生成，不发送链接到外部服务。
+![代理组、节点选择及测速](docs/images/proxies.png)
 
-## 查看与搜索
+### 运行时编辑与变更管理
 
-订阅页右上角“查看运行时配置”显示最近成功加载的完整 YAML，并叠加内核实时通用参数（例如运行模式），内核访问密钥隐藏。它与“查看原始文件”不同：前者包含覆写和脚本结果，后者是下载后保存的原文。
+![运行时规则的变更筛选与恢复](docs/images/runtime-rules.png)
 
-查看/编辑配置弹窗支持 `Ctrl+F`（Mac 为 `⌘F`）在当前文本内查找，显示匹配计数和行号；Enter/F3 跳转下一个，Shift+Enter/F3 上一个，Esc 先关闭搜索。搜索不会修改内容。
+### 完整策略选择
 
-代理组提供定位当前节点、整组延迟测试、延迟/名称排序和隐藏不可用节点。排序与筛选按组保存在当前浏览器，默认跟随全局设置。定位会清除该组筛选并显示选中节点；不会切换代理节点。
+![编辑规则时展开和搜索所有可选策略](docs/images/policy-picker.png)
 
-## 数据和配置
+## 快速开始
 
-| 文件/变量 | 用途 |
-| --- | --- |
-| `.env` | 部署密钥、端口和下载代理；位于 Compose 文件同级目录 |
-| `conf/profiles.json` | 订阅链接、原始内容、定时、覆写和脚本（包含私密数据） |
-| `conf/config.yaml` | 经过校验的当前运行配置 |
-| `conf/web.env` | 旧版迁移来源；首次迁移后由 profiles.json 管理订阅 |
-| `WEB_CONFIG_SECRET` | 首次/未设置网页密码时使用的初始密码 |
-| `conf/auth.json` | 网页保存的密码摘要，优先于环境变量 |
-| `conf/.auth-cli-token` | 自动生成的容器本地 CLI 认证凭据 |
-| `EXTERNAL_SECRET` | 内核 API 密钥，仅网关/内核使用 |
-| `WEB_CONFIG_PORT` | 网关端口，默认 9097 |
-| `EXTERNAL_PORT` | 容器内部内核 API 端口，默认 19097；不向主机映射 |
-| `MIXED_PORT` | HTTP/SOCKS 混合代理端口，默认 7897 |
-| `HTTPS_PROXY` / `HTTP_PROXY` | 订阅选择“代理更新”且未指定代理时使用的下载代理 |
-| `CONF_URL` / `CRON_EXPRESSION` | 首次初始化订阅使用；迁移后请在网页中修改 |
-| `TZ` | 首次初始化的时区，默认 Asia/Hong_Kong |
-
-订阅里的 API 绑定、密钥、代理端口不能覆盖部署设置。TUN 默认关闭。端口在设置页只读：网页不能修改 Docker 映射，需同步调整 `.env` 与 `compose.local.yaml` 并重建容器。API 也会拒绝修改这些端口。原生 zashboard 设置页仍可以调整运行模式等状态；需要在后续订阅更新后保留的 YAML 设置请写入全局覆写。网页访问密码修改即时生效；部署内核密钥修改需重建容器。
-
-## 构建
+需要 Docker 和 Docker Compose。首次使用从源码构建镜像：
 
 ```sh
-# Docker 构建包含 Go 测试、前端类型检查和源码构建
-# CORE_IMAGE 可指定所需的 Mihomo 镜像
-docker build -t mymihomo:dev .
+git clone https://github.com/dqgod/mymihomo.git
+cd mymihomo
+git switch dev
+cp .env.example .env
 ```
 
-本机旧 CPU 使用兼容内核和缓存构建流程，见 [LOCAL_DEPLOYMENT.md](LOCAL_DEPLOYMENT.md)。
-前端独立开发：Node.js 24、pnpm（packageManager 锁定版本）、`scripts/build-ui.sh`。
-Go 开发：Go 1.23+，`go test ./...`。
-升级前端时按 [UPSTREAM.md](web/zashboard/UPSTREAM.md) 合并新版本；不要使用面板的在线覆盖升级，避免丢失本仓库的集成功能。
+编辑 `.env`，设置服务器的 `MYMIHOMO_LAN_IP`、初始访问密码 `WEB_CONFIG_SECRET` 和内核密钥 `EXTERNAL_SECRET`。没有已有下载代理时，将 `HTTP_PROXY` / `HTTPS_PROXY` 留空，导入订阅时取消“通过代理下载”。
 
-## CLI 与 API
+```sh
+docker build -t local/dqgod-mymihomo:dev .
+docker compose -f compose.local.yaml up -d
+```
 
-容器内 `mymihomo update` 更新当前订阅，与网页和定时器共用管理服务及串行锁。
-`mymihomo prepare` 在启动时从持久化订阅生成运行配置；已有数据时不会重新下载订阅。
-`mymihomo download` 是旧版独立下载工具，不参与网页更新流程。
+打开 `http://<服务器局域网IP>:9097` 并登录，在**订阅**页面导入配置，再点击**使用**。有配置之后即可在代理页选择节点，或在规则页调整分流。
 
-管理 API 为同源 `/api/profiles`；浏览器使用 HttpOnly、SameSite 会话 Cookie，脚本可用 `Authorization: Bearer <当前访问密码>`。
-写请求校验 Origin，内核 REST/WebSocket 均经登录网关代理。旧 `/api/config` 已退出使用，18087 不再映射。
+| 默认端口 | 用途 |
+| --- | --- |
+| `7897` | HTTP / SOCKS5 混合代理，供本机和指定局域网地址使用 |
+| `9097` | 带登录认证的 zashboard 和管理 API |
+| `19097` | 容器内部的 Mihomo 控制接口，不映射到主机 |
+
+旧款 CPU 如需 compatible 内核，请参考 [Linux 部署指南](LOCAL_DEPLOYMENT.md)。
+
+## 配置如何生效
+
+```text
+原始订阅
+  → 全局覆写与脚本
+  → 单订阅覆写与脚本
+  → 持久化运行时编辑
+  → 部署设置与内核校验
+  → 应用到 Mihomo
+```
+
+远程订阅原文只读。页面编辑不会回写原始订阅或扩展脚本；只改过的字段才覆盖基准值，其余字段继续跟随订阅更新。上游移除被编辑的项时，会保留最后有效版本并标记，供你检查处理。校验失败时保留原有有效配置。
+
+私有数据保存在 `.env` 和 `conf/`，更新镜像时应保留并备份这些文件。
+
+## 文档与开发
+
+- [配置与使用指南](docs/CONFIGURATION.md)：订阅、覆写、脚本、运行时编辑、密码和 CLI。
+- [Linux 部署指南](LOCAL_DEPLOYMENT.md)：端口、兼容内核、更新和私有数据。
+- [开发维护约定](AGENTS.md)：目录职责、边界和验证要求。
+- [前端上游维护说明](web/zashboard/UPSTREAM.md)：如何合并 zashboard 后续版本。
+- [变更日志](CHANGELOG.md)。
+
+后端使用 Go，前端使用 Vue / TypeScript。开发需要 Go 1.23+、Node.js 24 和项目锁定的 pnpm 版本：
+
+```sh
+go test ./...
+scripts/build-ui.sh
+```
+
+## 上游与许可
+
+感谢 mymihomo、zashboard 和 Mihomo 的上游维护者。第三方组件遵循各自许可证；前端保留了 zashboard 的 [MIT 许可证](web/zashboard/LICENSE) 与第三方声明。

@@ -1,6 +1,11 @@
 <template>
+  <RuntimeEditor
+    v-if="runtimeEditor === 'rules'"
+    :initial-kind="runtimeInitialKind"
+    @close="runtimeEditor = null"
+  />
   <div
-    v-if="isTrace"
+    v-else-if="isTrace"
     class="relative size-full overflow-x-hidden"
   >
     <RulesCtrl />
@@ -80,6 +85,8 @@
 </template>
 
 <script setup lang="ts">
+import RuntimeEditor from '@/components/runtime/RuntimeEditor.vue'
+import { runtimeEditor, runtimeInitialKind } from '@/store/runtime-edits'
 import { renderRules, renderRulesProvider, rulesTabShow } from '@/store/rules'
 import VirtualScroller from '@/components/common/VirtualScroller.vue'
 import RulesCtrl from '@/components/controls/RulesCtrl'

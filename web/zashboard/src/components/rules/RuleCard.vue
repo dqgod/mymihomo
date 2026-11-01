@@ -62,14 +62,12 @@
           />
         </div>
         <div class="flex items-center gap-2">
-          <input
-            v-if="rule.uuid || rule.extra"
-            type="checkbox"
-            class="toggle"
-            :checked="!isDisabled"
-            @change="toggleRuleDisabledHandler"
-            @click.stop
-          />
+          <button
+            class="btn btn-xs btn-ghost"
+            @click.stop="openRuntimeEditor('rules', rule.payload || '')"
+          >
+            编辑 / 启停
+          </button>
           <ProxyChainPath
             :proxy="rule.proxy"
             :selected="selected"
@@ -101,6 +99,7 @@
 </template>
 
 <script setup lang="ts">
+import { openRuntimeEditor } from '@/store/runtime-edits'
 import { rulesFilter } from '@/store/rules'
 import { useBounceOnVisible } from '@/composables/use-bounce-on-visible'
 import { useRuleHitTooltip } from '@/composables/use-rule-hit-tooltip'

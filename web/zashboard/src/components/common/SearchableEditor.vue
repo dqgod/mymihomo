@@ -5,6 +5,7 @@ const props = withDefaults(
   { height: '45dvh' },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const root = ref<HTMLElement>()
 const input = ref<HTMLTextAreaElement>()
 const search = ref<HTMLInputElement>()
 const showing = ref(false)
@@ -62,6 +63,8 @@ async function find() {
   search.value?.select()
 }
 function keydown(e: KeyboardEvent) {
+  const owner = (document.activeElement as HTMLElement | null)?.closest('[data-config-editor]')
+  if (owner && owner !== root.value) return
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
     e.preventDefault()
     e.stopImmediatePropagation()
@@ -88,7 +91,11 @@ onMounted(() => window.addEventListener('keydown', keydown, true))
 onBeforeUnmount(() => window.removeEventListener('keydown', keydown, true))
 </script>
 <template>
-  <div class="border-base-content/15 overflow-hidden rounded-xl border">
+  <div
+    ref="root"
+    data-config-editor
+    class="border-base-content/15 overflow-hidden rounded-xl border"
+  >
     <div class="bg-base-200/50 flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
       <span class="mr-auto opacity-60"
         >{{ readonly ? '只读' : '可编辑' }} · {{ modelValue.split('\n').length }} 行</span

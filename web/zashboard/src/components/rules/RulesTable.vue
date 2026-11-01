@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+import { openRuntimeEditor } from '@/store/runtime-edits'
 import { renderRules, renderRulesProvider, rulesFilter, rulesTabShow } from '@/store/rules'
 import DialogWrapper from '@/components/common/DialogWrapper.vue'
 import HighlightText from '@/components/common/HighlightText.vue'
@@ -262,17 +263,17 @@ const ruleColumns: ColumnDef<Rule>[] = [
     cell: ({ row }) => {
       const rule = row.original
 
-      if (!rule.uuid && !rule.extra) {
-        return null
-      }
-
-      return h('input', {
-        type: 'checkbox',
-        class: 'toggle toggle-sm',
-        checked: !isRuleDisabled(rule),
-        onClick: (e: MouseEvent) => e.stopPropagation(),
-        onChange: () => toggleRuleHandler(rule),
-      })
+      return h(
+        'button',
+        {
+          class: 'btn btn-ghost btn-xs',
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            openRuntimeEditor('rules', rule.payload || '')
+          },
+        },
+        '编辑 / 启停',
+      )
     },
     meta: { cellClass: 'w-20' },
   },

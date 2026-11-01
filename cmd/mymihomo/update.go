@@ -82,6 +82,11 @@ func prepareManagedConfig(confFile string) error {
 	if err = atomicWrite(confFile, data); err != nil {
 		return err
 	}
+	if index := profileIndex(s, s.ActiveID); index >= 0 {
+		if err := captureRuntimeEdits(s, &s.Profiles[index]); err != nil {
+			return err
+		}
+	}
 	return m.save(s)
 }
 
@@ -107,4 +112,24 @@ func updateConfig(confFile string) error {
 	}
 	fmt.Println("订阅配置已更新并应用")
 	return nil
+}
+
+func readCoreSettings() (map[string]interface{}, error) {
+	req, _ := http.NewRequest("GET", "http://127.0.0.1:"+getEnvDefault("EXTERNAL_PORT", "19097")+"/configs", nil)
+	req.Header.Set("Authorization", "Bearer "+os.Getenv("EXTERNAL_SECRET"))
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 5 * time.Second}
+	defer client.CloseIdleConnections()
+	response, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("内核运行参数读取失败，原配置未改动")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("内核运行参数读取失败")
+	}
+	var result map[string]interface{}
+	if err = json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
