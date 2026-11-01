@@ -1,0 +1,6 @@
+.git
+.env
+.env.*
+conf
+.build
+web/zashboard/node_modules

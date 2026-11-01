@@ -31,19 +31,16 @@ func main() {
 
 	case "update":
 		updateCmd := flag.NewFlagSet("update", flag.ExitOnError)
-		confFile := updateCmd.String("c", "/root/conf/config.yaml", "配置文件路径")
+		confFile := updateCmd.String("c", getEnvDefault("CONF_FILE", "/root/conf/config.yaml"), "配置文件路径")
 		updateCmd.Parse(os.Args[2:])
 		if err := updateConfig(*confFile); err != nil {
 			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
 			os.Exit(1)
 		}
 
-	case "render":
-		renderCmd := flag.NewFlagSet("render", flag.ExitOnError)
-		indexFile := renderCmd.String("o", "/root/.config/mihomo/ui/index.html", "导航页输出路径")
-		renderCmd.Parse(os.Args[2:])
-		if err := renderIndex(*indexFile); err != nil {
-			fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+	case "prepare":
+		if err := prepareManagedConfig(getEnvDefault("CONF_FILE", "/root/conf/config.yaml")); err != nil {
+			fmt.Fprintf(os.Stderr, "初始化失败: %s\n", safeMessage(err))
 			os.Exit(1)
 		}
 
@@ -52,7 +49,7 @@ func main() {
 
 	case "serve":
 		serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
-		addr := serveCmd.String("addr", ":"+getEnvDefault("WEB_CONFIG_PORT", "18080"), "配置服务监听地址")
+		addr := serveCmd.String("addr", ":"+getEnvDefault("WEB_CONFIG_PORT", "9097"), "配置服务监听地址")
 		confFile := serveCmd.String("c", getEnvDefault("CONF_FILE", "/root/conf/config.yaml"), "配置文件路径")
 		envFile := serveCmd.String("e", getWebEnvFile(), "持久化环境变量文件")
 		serveCmd.Parse(os.Args[2:])
@@ -73,7 +70,7 @@ func printUsage() {
 	fmt.Println("命令:")
 	fmt.Println("  download  下载并处理配置文件")
 	fmt.Println("  update    更新运行中的mihomo配置")
-	fmt.Println("  render    渲染导航页")
+	fmt.Println("  prepare   初始化订阅存储并生成经过校验的运行配置")
 	fmt.Println("  version   显示版本信息")
 	fmt.Println("  serve     启动配置 API 服务")
 }
